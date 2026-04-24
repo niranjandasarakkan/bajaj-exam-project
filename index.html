@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BFHL — Tree Analyzer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #2a2a3a;
+    --accent: #7efff5;
+    --accent2: #ff6b6b;
+    --accent3: #ffd93d;
+    --text: #e8e8f0;
+    --muted: #6b6b8a;
+    --tree-line: #2a2a3a;
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-mono);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid bg */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(126,255,245,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(126,255,245,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: flex-end;
+    gap: 1rem;
+    margin-bottom: 3rem;
+    animation: slideDown 0.6s ease;
+  }
+
+  .logo-badge {
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    padding: 0.3rem 0.6rem;
+    text-transform: uppercase;
+    clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  }
+
+  h1 {
+    font-family: var(--font-display);
+    font-size: clamp(1.6rem, 4vw, 2.4rem);
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text);
+  }
+
+  h1 span { color: var(--accent); }
+
+  .subtitle {
+    margin-top: 0.3rem;
+    font-size: 0.72rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* Input card */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1.5rem;
+    position: relative;
+    clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+    animation: fadeIn 0.7s ease 0.2s both;
+  }
+
+  .card-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.75rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+
+  .card-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    padding: 1rem;
+    resize: vertical;
+    min-height: 120px;
+    outline: none;
+    transition: border-color 0.2s;
+    line-height: 1.6;
+  }
+
+  textarea::placeholder { color: var(--muted); }
+  textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent) inset; }
+
+  .input-hint {
+    font-size: 0.65rem;
+    color: var(--muted);
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+  }
+
+  .btn {
+    margin-top: 1.25rem;
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.9rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.85rem 2rem;
+    cursor: pointer;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+    transition: all 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn:hover { background: #a0fff8; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+  .btn-loader {
+    display: none;
+    width: 14px; height: 14px;
+    border: 2px solid var(--bg);
+    border-top-color: transparent;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    vertical-align: middle;
+    margin-right: 0.5rem;
+  }
+
+  .btn.loading .btn-loader { display: inline-block; }
+  .btn.loading .btn-text { opacity: 0.7; }
+
+  /* Error */
+  .error-box {
+    display: none;
+    margin-top: 1.5rem;
+    background: rgba(255,107,107,0.08);
+    border: 1px solid var(--accent2);
+    padding: 1rem 1.25rem;
+    color: var(--accent2);
+    font-size: 0.8rem;
+    clip-path: polygon(0 0, calc(100% - 10px) 0, 100% 10px, 100% 100%, 10px 100%, 0 calc(100% - 10px));
+  }
+
+  .error-box.show { display: block; animation: fadeIn 0.3s ease; }
+
+  /* Results */
+  #results {
+    margin-top: 2rem;
+    animation: fadeIn 0.5s ease;
+  }
+
+  /* Section */
+  .section {
+    margin-bottom: 1.5rem;
+    animation: slideUp 0.4s ease both;
+  }
+
+  .section-title {
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--accent);
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 1rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+
+  .section-title .pill {
+    background: var(--accent);
+    color: var(--bg);
+    font-size: 0.6rem;
+    font-weight: 700;
+    padding: 0.1rem 0.45rem;
+    border-radius: 2px;
+  }
+
+  /* Identity row */
+  .id-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .id-item {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 0.75rem 1rem;
+  }
+
+  .id-item-key {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+  }
+
+  .id-item-val {
+    font-size: 0.85rem;
+    color: var(--accent3);
+    word-break: break-all;
+  }
+
+  /* Summary cards */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+
+  .summary-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1rem;
+    text-align: center;
+  }
+
+  .summary-num {
+    font-family: var(--font-display);
+    font-size: 2rem;
+    font-weight: 800;
+    color: var(--accent);
+    line-height: 1;
+  }
+
+  .summary-label {
+    font-size: 0.6rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 0.3rem;
+  }
+
+  /* Hierarchy cards */
+  .hier-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .hier-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1rem 1.25rem;
+  }
+
+  .hier-card.cycle { border-color: rgba(255,107,107,0.4); }
+
+  .hier-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .hier-root-badge {
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1rem;
+    width: 36px; height: 36px;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .hier-card.cycle .hier-root-badge {
+    background: var(--accent2);
+  }
+
+  .hier-meta { flex: 1; }
+  .hier-meta-title { font-size: 0.75rem; color: var(--text); font-weight: 700; }
+  .hier-meta-sub { font-size: 0.65rem; color: var(--muted); letter-spacing: 0.08em; margin-top: 0.15rem; }
+
+  .tag-cycle {
+    background: rgba(255,107,107,0.12);
+    color: var(--accent2);
+    border: 1px solid rgba(255,107,107,0.3);
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
+  .tag-depth {
+    background: rgba(126,255,245,0.08);
+    color: var(--accent);
+    border: 1px solid rgba(126,255,245,0.2);
+    font-size: 0.6rem;
+    padding: 0.2rem 0.5rem;
+    letter-spacing: 0.1em;
+  }
+
+  /* Tree viz */
+  .tree-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 1rem;
+    overflow-x: auto;
+  }
+
+  .tree-node {
+    display: flex;
+    flex-direction: column;
+    padding-left: 0;
+  }
+
+  .tree-node-row {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.2rem 0;
+  }
+
+  .tree-node-row .node-dot {
+    width: 8px; height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .tree-children {
+    padding-left: 1.5rem;
+    border-left: 1px dashed var(--border);
+    margin-left: 3px;
+  }
+
+  .node-label {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text);
+    background: rgba(126,255,245,0.06);
+    border: 1px solid rgba(126,255,245,0.15);
+    padding: 0.1rem 0.45rem;
+  }
+
+  /* Tags for invalid / dupe */
+  .tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+
+  .tag {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.65rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  .tag.invalid { border-color: rgba(255,107,107,0.4); color: var(--accent2); }
+  .tag.dupe { border-color: rgba(255,217,61,0.4); color: var(--accent3); }
+
+  .empty-note {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* JSON toggle */
+  .json-toggle {
+    margin-top: 1.25rem;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    width: 100%;
+  }
+
+  .json-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+  .json-panel {
+    display: none;
+    margin-top: 0.5rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1rem;
+    font-size: 0.75rem;
+    color: #8be9fd;
+    overflow-x: auto;
+    white-space: pre;
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  .json-panel.open { display: block; animation: fadeIn 0.3s ease; }
+
+  /* Animations */
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  @keyframes slideDown { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: none; } }
+  @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 520px) {
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <div>
+      <div class="logo-badge">BFHL</div>
+    </div>
+    <div>
+      <h1>Tree <span>Analyzer</span></h1>
+      <div class="subtitle">Hierarchical Node Processor · REST API</div>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="card-label">Input — Node List</div>
+    <textarea id="input" placeholder="Enter comma-separated or newline-separated edges&#10;Example: A->B, A->C, B->D, X->Y, Y->Z, Z->X, hello, 1->2" rows="6"></textarea>
+    <div class="input-hint">Each edge: X->Y (uppercase letters only). Separate by comma or newline.</div>
+    <button class="btn" id="submitBtn" onclick="submitData()">
+      <span class="btn-loader"></span>
+      <span class="btn-text">Analyze →</span>
+    </button>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+  <div id="results"></div>
+</div>
+
+<script>
+  const API_URL = window.location.origin + '/bfhl';
+
+  async function submitData() {
+    const raw = document.getElementById('input').value.trim();
+    const btn = document.getElementById('submitBtn');
+    const errorBox = document.getElementById('errorBox');
+    const results = document.getElementById('results');
+
+    errorBox.className = 'error-box';
+    results.innerHTML = '';
+
+    if (!raw) {
+      showError('Please enter at least one edge.');
+      return;
+    }
+
+    // Parse input: split by comma or newline
+    const data = raw.split(/[\n,]+/).map(s => s.trim()).filter(Boolean);
+
+    btn.classList.add('loading');
+    btn.disabled = true;
+
+    try {
+      const res = await fetch(API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data })
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+      const json = await res.json();
+      renderResults(json);
+    } catch (err) {
+      showError('API call failed: ' + err.message);
+    } finally {
+      btn.classList.remove('loading');
+      btn.disabled = false;
+    }
+  }
+
+  function showError(msg) {
+    const box = document.getElementById('errorBox');
+    box.textContent = '✕ ' + msg;
+    box.className = 'error-box show';
+  }
+
+  function renderResults(json) {
+    const results = document.getElementById('results');
+
+    let delay = 0;
+    const section = (title, pill, content) => {
+      delay += 80;
+      return `<div class="section" style="animation-delay:${delay}ms">
+        <div class="section-title">${title} <span class="pill">${pill}</span></div>
+        ${content}
+      </div>`;
+    };
+
+    // Identity
+    const idHtml = `<div class="id-grid">
+      ${idItem('User ID', json.user_id)}
+      ${idItem('Email', json.email_id)}
+      ${idItem('Roll No', json.college_roll_number)}
+    </div>`;
+
+    // Summary
+    const sumHtml = `<div class="summary-grid">
+      <div class="summary-card"><div class="summary-num">${json.summary.total_trees}</div><div class="summary-label">Valid Trees</div></div>
+      <div class="summary-card"><div class="summary-num" style="color:var(--accent2)">${json.summary.total_cycles}</div><div class="summary-label">Cycles</div></div>
+      <div class="summary-card"><div class="summary-num" style="color:var(--accent3)">${json.summary.largest_tree_root || '—'}</div><div class="summary-label">Deepest Root</div></div>
+    </div>`;
+
+    // Hierarchies
+    const hierHtml = `<div class="hier-list">${(json.hierarchies || []).map(renderHierarchy).join('')}</div>`;
+
+    // Invalid
+    const invHtml = json.invalid_entries?.length
+      ? `<div class="tag-list">${json.invalid_entries.map(e => `<span class="tag invalid">${esc(e)}</span>`).join('')}</div>`
+      : `<p class="empty-note">No invalid entries</p>`;
+
+    // Duplicates
+    const dupHtml = json.duplicate_edges?.length
+      ? `<div class="tag-list">${json.duplicate_edges.map(e => `<span class="tag dupe">${esc(e)}</span>`).join('')}</div>`
+      : `<p class="empty-note">No duplicate edges</p>`;
+
+    // JSON panel
+    const jsonPanel = `
+      <button class="json-toggle" onclick="toggleJson()">{ } Raw JSON Response</button>
+      <div class="json-panel" id="jsonPanel">${esc(JSON.stringify(json, null, 2))}</div>`;
+
+    results.innerHTML =
+      section('Identity', 'Fields', idHtml) +
+      section('Summary', 'Stats', sumHtml) +
+      section('Hierarchies', json.hierarchies?.length, hierHtml) +
+      section('Invalid Entries', json.invalid_entries?.length || 0, invHtml) +
+      section('Duplicate Edges', json.duplicate_edges?.length || 0, dupHtml) +
+      jsonPanel;
+  }
+
+  function idItem(key, val) {
+    return `<div class="id-item"><div class="id-item-key">${key}</div><div class="id-item-val">${esc(val)}</div></div>`;
+  }
+
+  function renderHierarchy(h) {
+    const isCycle = h.has_cycle === true;
+    const tags = isCycle
+      ? `<span class="tag-cycle">⟳ Cycle</span>`
+      : `<span class="tag-depth">Depth: ${h.depth}</span>`;
+
+    const treeViz = isCycle
+      ? `<div style="font-size:0.75rem;color:var(--accent2);padding:0.5rem 0">Cyclic group — no tree structure</div>`
+      : `<div class="tree-wrap">${renderTreeNode(h.root, h.tree[h.root] || {})}</div>`;
+
+    return `<div class="hier-card ${isCycle ? 'cycle' : ''}">
+      <div class="hier-header">
+        <div class="hier-root-badge">${esc(h.root)}</div>
+        <div class="hier-meta">
+          <div class="hier-meta-title">Root: ${esc(h.root)}</div>
+          <div class="hier-meta-sub">${isCycle ? 'Cyclic group' : `Tree · depth ${h.depth}`}</div>
+        </div>
+        ${tags}
+      </div>
+      ${treeViz}
+    </div>`;
+  }
+
+  function renderTreeNode(label, children) {
+    const keys = Object.keys(children || {});
+    return `<div class="tree-node">
+      <div class="tree-node-row">
+        <div class="node-dot"></div>
+        <span class="node-label">${esc(label)}</span>
+      </div>
+      ${keys.length ? `<div class="tree-children">${keys.map(k => renderTreeNode(k, children[k])).join('')}</div>` : ''}
+    </div>`;
+  }
+
+  function toggleJson() {
+    document.getElementById('jsonPanel').classList.toggle('open');
+  }
+
+  function esc(s) {
+    return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  // Allow Enter+Ctrl to submit
+  document.getElementById('input').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && e.ctrlKey) submitData();
+  });
+</script>
+</body>
+</html>
